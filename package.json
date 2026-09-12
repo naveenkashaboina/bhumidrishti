@@ -1,0 +1,20 @@
+{
+  "name": "bhumidrishti-monorepo",
+  "version": "1.0.0",
+  "private": true,
+  "description": "BhumiDrishti (भूमिदृष्टि) — Multilingual Land Records Digitization & Verification Platform",
+  "workspaces": [
+    "server",
+    "client"
+  ],
+  "scripts": {
+    "dev:server": "npm --prefix server run dev",
+    "dev:client": "npm --prefix client run dev",
+    "start:server": "npm --prefix server start",
+    "build": "npm --prefix client run build",
+    "build:client": "npm --prefix client run build",
+    "seed": "npm --prefix server run seed",
+    "test": "npm --prefix server test",
+    "test:server": "npm --prefix server test"
+  }
+}

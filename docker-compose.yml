@@ -1,0 +1,102 @@
+version: '3.8'
+
+services:
+  mongo:
+    image: mongo:7.0
+    container_name: bhumidrishti-mongo
+    restart: unless-stopped
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongo_data:/data/db
+    environment:
+      - MONGO_INITDB_DATABASE=bhumidrishti
+    healthcheck:
+      test: ["CMD", "mongosh", "--eval", "db.adminCommand('ping')"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    container_name: bhumidrishti-redis
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  minio:
+    image: minio/minio:latest
+    container_name: bhumidrishti-minio
+    restart: unless-stopped
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    volumes:
+      - minio_data:/data
+    environment:
+      - MINIO_ROOT_USER=bhumidrishti_minio_admin
+      - MINIO_ROOT_PASSWORD=bhumidrishti_minio_secret_key
+    command: server /data --console-address ":9001"
+    healthcheck:
+      test: ["CMD", "mc", "ready", "local"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  server:
+    build:
+      context: ./server
+      dockerfile: Dockerfile
+    container_name: bhumidrishti-server
+    restart: unless-stopped
+    ports:
+      - "5000:5000"
+    depends_on:
+      mongo:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    environment:
+      - NODE_ENV=production
+      - PORT=5000
+      - MONGODB_URI=mongodb://mongo:27017/bhumidrishti
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - ENABLE_REDIS_QUEUE=true
+      - JWT_SECRET=bhumidrishti_jwt_prod_secret_sih2026_super_key
+      - JWT_REFRESH_SECRET=bhumidrishti_jwt_refresh_prod_secret_sih2026
+      - OCR_PROVIDER=tesseract
+      - CONFIDENCE_THRESHOLD_OVERALL=80
+      - CONFIDENCE_THRESHOLD_FIELD=60
+
+  worker:
+    build:
+      context: ./server
+      dockerfile: Dockerfile
+    container_name: bhumidrishti-worker
+    command: ["node", "worker.js"]
+    restart: unless-stopped
+    depends_on:
+      mongo:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    environment:
+      - NODE_ENV=production
+      - MONGODB_URI=mongodb://mongo:27017/bhumidrishti
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - ENABLE_REDIS_QUEUE=true
+      - OCR_PROVIDER=tesseract
+
+volumes:
+  mongo_data:
+  redis_data:
+  minio_data:

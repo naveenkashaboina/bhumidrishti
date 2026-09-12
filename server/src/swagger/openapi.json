@@ -1,0 +1,412 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "BhumiDrishti API",
+    "version": "1.0.0",
+    "description": "Smart India Hackathon (SIH 26018) - Multilingual Land Records Digitization & Verification Platform. Built for Ministry of Rural Development, Department of Land Resources (DoLR).",
+    "contact": {
+      "name": "BhumiDrishti Team",
+      "email": "support@bhumidrishti.gov.in"
+    }
+  },
+  "servers": [
+    {
+      "url": "http://localhost:5000/api/v1",
+      "description": "Local Development Server"
+    }
+  ],
+  "components": {
+    "securitySchemes": {
+      "BearerAuth": {
+        "type": "http",
+        "scheme": "bearer",
+        "bearerFormat": "JWT",
+        "description": "JWT Access Token obtained from /auth/login"
+      },
+      "ApiKeyAuth": {
+        "type": "apiKey",
+        "in": "header",
+        "name": "x-api-key",
+        "description": "External integration API Key for LRMS/DILRMP/GIS consumer systems"
+      }
+    },
+    "schemas": {
+      "User": {
+        "type": "object",
+        "properties": {
+          "_id": { "type": "string" },
+          "name": { "type": "string" },
+          "email": { "type": "string" },
+          "role": {
+            "type": "string",
+            "enum": ["DEO", "VERIFIER", "DISTRICT_OFFICER", "STATE_ADMIN", "SUPER_ADMIN"]
+          },
+          "jurisdiction": {
+            "type": "object",
+            "properties": {
+              "state": { "type": "string" },
+              "district": { "type": "string" },
+              "tehsil": { "type": "string" },
+              "village": { "type": "string" }
+            }
+          },
+          "isActive": { "type": "boolean" },
+          "createdAt": { "type": "string", "format": "date-time" }
+        }
+      },
+      "LandRecord": {
+        "type": "object",
+        "properties": {
+          "_id": { "type": "string" },
+          "documentId": { "type": "string" },
+          "surveyNumber": { "type": "string" },
+          "khasraNumber": { "type": "string" },
+          "khataNumber": { "type": "string" },
+          "plotArea": {
+            "type": "object",
+            "properties": {
+              "value": { "type": "number" },
+              "unit": { "type": "string", "enum": ["acres", "hectares", "bigha", "sq_meters", "sq_yards", "guntha"] }
+            }
+          },
+          "location": {
+            "type": "object",
+            "properties": {
+              "state": { "type": "string" },
+              "district": { "type": "string" },
+              "tehsil": { "type": "string" },
+              "village": { "type": "string" },
+              "geo": { "type": "object" }
+            }
+          },
+          "landClassification": { "type": "string" },
+          "landownerDetails": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "name": { "type": "string" },
+                "guardianName": { "type": "string" },
+                "share": { "type": "string" }
+              }
+            }
+          },
+          "status": {
+            "type": "string",
+            "enum": ["EXTRACTED", "NEEDS_VERIFICATION", "PENDING_APPROVAL", "VALIDATED", "PUBLISHED", "REJECTED", "ARCHIVED"]
+          },
+          "confidence": {
+            "type": "object",
+            "properties": {
+              "overall": { "type": "number" },
+              "fields": { "type": "object" }
+            }
+          },
+          "flaggedFields": { "type": "array", "items": { "type": "string" } },
+          "version": { "type": "integer" }
+        }
+      },
+      "ApiResponse": {
+        "type": "object",
+        "properties": {
+          "success": { "type": "boolean" },
+          "message": { "type": "string" },
+          "data": { "type": "object" },
+          "meta": { "type": "object" }
+        }
+      }
+    }
+  },
+  "paths": {
+    "/auth/login": {
+      "post": {
+        "summary": "User Login",
+        "tags": ["Auth"],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["email", "password"],
+                "properties": {
+                  "email": { "type": "string", "example": "verifier@bhumidrishti.gov.in" },
+                  "password": { "type": "string", "example": "Verifier@123" }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": { "description": "Login successful" },
+          "401": { "description": "Invalid credentials" }
+        }
+      }
+    },
+    "/auth/refresh": {
+      "post": {
+        "summary": "Refresh Access Token",
+        "tags": ["Auth"],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["refreshToken"],
+                "properties": { "refreshToken": { "type": "string" } }
+              }
+            }
+          }
+        },
+        "responses": { "200": { "description": "Token refreshed" } }
+      }
+    },
+    "/auth/me": {
+      "get": {
+        "summary": "Get Current Authenticated User",
+        "tags": ["Auth"],
+        "security": [{ "BearerAuth": [] }],
+        "responses": { "200": { "description": "User profile" } }
+      }
+    },
+    "/documents/upload": {
+      "post": {
+        "summary": "Upload a Single Land Record Document",
+        "tags": ["Documents"],
+        "security": [{ "BearerAuth": [] }],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "file": { "type": "string", "format": "binary" },
+                  "district": { "type": "string", "example": "Pune" },
+                  "tehsil": { "type": "string", "example": "Haveli" },
+                  "village": { "type": "string", "example": "Wagholi" },
+                  "languageHint": { "type": "string", "example": "hin+eng" }
+                }
+              }
+            }
+          }
+        },
+        "responses": { "201": { "description": "Document uploaded and queued" } }
+      }
+    },
+    "/documents": {
+      "get": {
+        "summary": "List Documents (Paginated & Filtered)",
+        "tags": ["Documents"],
+        "security": [{ "BearerAuth": [] }],
+        "parameters": [
+          { "name": "page", "in": "query", "schema": { "type": "integer", "default": 1 } },
+          { "name": "limit", "in": "query", "schema": { "type": "integer", "default": 20 } },
+          { "name": "status", "in": "query", "schema": { "type": "string" } }
+        ],
+        "responses": { "200": { "description": "Document list" } }
+      }
+    },
+    "/records": {
+      "get": {
+        "summary": "List Land Records (Paginated & Jurisdiction Scoped)",
+        "tags": ["Records"],
+        "security": [{ "BearerAuth": [] }],
+        "parameters": [
+          { "name": "page", "in": "query", "schema": { "type": "integer" } },
+          { "name": "limit", "in": "query", "schema": { "type": "integer" } },
+          { "name": "district", "in": "query", "schema": { "type": "string" } },
+          { "name": "village", "in": "query", "schema": { "type": "string" } },
+          { "name": "status", "in": "query", "schema": { "type": "string" } },
+          { "name": "surveyNumber", "in": "query", "schema": { "type": "string" } }
+        ],
+        "responses": { "200": { "description": "Records list" } }
+      }
+    },
+    "/records/{id}": {
+      "get": {
+        "summary": "Get Land Record Details",
+        "tags": ["Records"],
+        "security": [{ "BearerAuth": [] }],
+        "parameters": [{ "name": "id", "in": "path", "required": true, "schema": { "type": "string" } }],
+        "responses": { "200": { "description": "Record details" } }
+      },
+      "patch": {
+        "summary": "Verifier Correction (Optimistic Concurrency & Learning Feedback)",
+        "tags": ["Records"],
+        "security": [{ "BearerAuth": [] }],
+        "parameters": [{ "name": "id", "in": "path", "required": true, "schema": { "type": "string" } }],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["version"],
+                "properties": {
+                  "version": { "type": "integer", "example": 1 },
+                  "surveyNumber": { "type": "string", "example": "142/2A" },
+                  "khasraNumber": { "type": "string", "example": "452" },
+                  "plotArea": {
+                    "type": "object",
+                    "properties": { "value": { "type": "number", "example": 2.5 }, "unit": { "type": "string", "example": "acres" } }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": { "description": "Record updated and feedback logged" },
+          "409": { "description": "Optimistic concurrency conflict" }
+        }
+      }
+    },
+    "/records/{id}/approve": {
+      "post": {
+        "summary": "Approve Record to VALIDATED",
+        "tags": ["Records"],
+        "security": [{ "BearerAuth": [] }],
+        "parameters": [{ "name": "id", "in": "path", "required": true, "schema": { "type": "string" } }],
+        "responses": { "200": { "description": "Record validated" } }
+      }
+    },
+    "/records/{id}/reject": {
+      "post": {
+        "summary": "Reject Record",
+        "tags": ["Records"],
+        "security": [{ "BearerAuth": [] }],
+        "parameters": [{ "name": "id", "in": "path", "required": true, "schema": { "type": "string" } }],
+        "responses": { "200": { "description": "Record rejected" } }
+      }
+    },
+    "/records/{id}/publish": {
+      "post": {
+        "summary": "Publish Record to Open Registry",
+        "tags": ["Records"],
+        "security": [{ "BearerAuth": [] }],
+        "parameters": [{ "name": "id", "in": "path", "required": true, "schema": { "type": "string" } }],
+        "responses": { "200": { "description": "Record published" } }
+      }
+    },
+    "/records/{id}/duplicates": {
+      "get": {
+        "summary": "Check for Duplicates",
+        "tags": ["Records"],
+        "security": [{ "BearerAuth": [] }],
+        "parameters": [{ "name": "id", "in": "path", "required": true, "schema": { "type": "string" } }],
+        "responses": { "200": { "description": "Duplicate detection result" } }
+      }
+    },
+    "/records/{id}/audit": {
+      "get": {
+        "summary": "Get Record Audit Trail",
+        "tags": ["Records"],
+        "security": [{ "BearerAuth": [] }],
+        "parameters": [{ "name": "id", "in": "path", "required": true, "schema": { "type": "string" } }],
+        "responses": { "200": { "description": "Audit trail entries" } }
+      }
+    },
+    "/verification/queue": {
+      "get": {
+        "summary": "Get Human Verification Task Queue",
+        "tags": ["Verification"],
+        "security": [{ "BearerAuth": [] }],
+        "responses": { "200": { "description": "Verification queue tasks" } }
+      }
+    },
+    "/verification/{taskId}/claim": {
+      "post": {
+        "summary": "Claim Verification Task",
+        "tags": ["Verification"],
+        "security": [{ "BearerAuth": [] }],
+        "parameters": [{ "name": "taskId", "in": "path", "required": true, "schema": { "type": "string" } }],
+        "responses": { "200": { "description": "Task claimed" } }
+      }
+    },
+    "/verification/{taskId}/complete": {
+      "post": {
+        "summary": "Complete Verification Task",
+        "tags": ["Verification"],
+        "security": [{ "BearerAuth": [] }],
+        "parameters": [{ "name": "taskId", "in": "path", "required": true, "schema": { "type": "string" } }],
+        "responses": { "200": { "description": "Task completed" } }
+      }
+    },
+    "/dashboard/summary": {
+      "get": {
+        "summary": "Overall System Summary Metrics",
+        "tags": ["Dashboard"],
+        "security": [{ "BearerAuth": [] }],
+        "responses": { "200": { "description": "Dashboard summary" } }
+      }
+    },
+    "/dashboard/by-region": {
+      "get": {
+        "summary": "State and District Breakdown",
+        "tags": ["Dashboard"],
+        "security": [{ "BearerAuth": [] }],
+        "parameters": [{ "name": "level", "in": "query", "schema": { "type": "string", "enum": ["state", "district"] } }],
+        "responses": { "200": { "description": "Regional statistics" } }
+      }
+    },
+    "/dashboard/error-stats": {
+      "get": {
+        "summary": "Field-Level Error & Correction Stats",
+        "tags": ["Dashboard"],
+        "security": [{ "BearerAuth": [] }],
+        "responses": { "200": { "description": "Error statistics" } }
+      }
+    },
+    "/dashboard/trend": {
+      "get": {
+        "summary": "30-Day Processing & Accuracy Trend",
+        "tags": ["Dashboard"],
+        "security": [{ "BearerAuth": [] }],
+        "responses": { "200": { "description": "Trend time series" } }
+      }
+    },
+    "/gis/plots": {
+      "get": {
+        "summary": "Cadastral GeoJSON Plots for Map Rendering",
+        "tags": ["GIS"],
+        "security": [{ "BearerAuth": [] }],
+        "parameters": [
+          { "name": "district", "in": "query", "schema": { "type": "string" } },
+          { "name": "village", "in": "query", "schema": { "type": "string" } }
+        ],
+        "responses": { "200": { "description": "GeoJSON FeatureCollection" } }
+      }
+    },
+    "/integration/records": {
+      "get": {
+        "summary": "External Government Query for Validated Records",
+        "tags": ["External Integration"],
+        "security": [{ "ApiKeyAuth": [] }],
+        "parameters": [
+          { "name": "district", "in": "query", "schema": { "type": "string" } },
+          { "name": "village", "in": "query", "schema": { "type": "string" } }
+        ],
+        "responses": { "200": { "description": "Sanitized records (PII masked if no read:pii scope)" } }
+      }
+    },
+    "/integration/records/{surveyNumber}": {
+      "get": {
+        "summary": "Lookup Record by Survey Number",
+        "tags": ["External Integration"],
+        "security": [{ "ApiKeyAuth": [] }],
+        "parameters": [{ "name": "surveyNumber", "in": "path", "required": true, "schema": { "type": "string" } }],
+        "responses": { "200": { "description": "Land record details" } }
+      }
+    },
+    "/integration/gis/plots": {
+      "get": {
+        "summary": "External GIS Plot Boundaries (GeoJSON)",
+        "tags": ["External Integration"],
+        "security": [{ "ApiKeyAuth": [] }],
+        "responses": { "200": { "description": "GeoJSON FeatureCollection" } }
+      }
+    }
+  }
+}

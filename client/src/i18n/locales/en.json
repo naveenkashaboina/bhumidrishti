@@ -1,0 +1,47 @@
+{
+  "app": {
+    "name": "BhumiDrishti",
+    "tagline": "Intelligent Land Record Digitization & Validation",
+    "ministry": "Ministry of Rural Development · Department of Land Resources"
+  },
+  "nav": {
+    "deoDashboard": "My Uploads",
+    "bulkUpload": "Bulk Upload",
+    "verification": "Verification",
+    "records": "Records",
+    "gisMap": "GIS Map",
+    "analytics": "Analytics",
+    "admin": "Admin",
+    "citizenLookup": "Public Lookup"
+  },
+  "common": {
+    "email": "Email",
+    "password": "Password",
+    "submit": "Submit",
+    "cancel": "Cancel",
+    "save": "Save",
+    "loading": "Loading…",
+    "error": "Something went wrong",
+    "logout": "Log out",
+    "language": "Language"
+  },
+  "login": {
+    "heading": "Sign in to your register",
+    "subheading": "Access your role's workspace to digitize, verify, and publish land records.",
+    "emailLabel": "Official email",
+    "passwordLabel": "Password",
+    "submit": "Sign in",
+    "signingIn": "Signing in…",
+    "demoHeading": "Demo access",
+    "demoHint": "Select a role to fill in test credentials for this SIH demonstration.",
+    "invalid": "That email or password wasn't recognised. Please check and try again.",
+    "networkError": "Couldn't reach the server. Please check your connection and try again."
+  },
+  "roles": {
+    "DEO": "Data Entry Operator",
+    "VERIFIER": "Verifier",
+    "DISTRICT_OFFICER": "District Officer",
+    "STATE_ADMIN": "State Admin",
+    "SUPER_ADMIN": "Super Admin"
+  }
+}

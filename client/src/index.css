@@ -1,0 +1,42 @@
+@import 'leaflet/dist/leaflet.css';
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  html {
+    -webkit-font-smoothing: antialiased;
+  }
+
+  body {
+    @apply bg-paper text-ink font-sans;
+  }
+
+  :focus-visible {
+    outline: 2px solid theme('colors.register.500');
+    outline-offset: 2px;
+  }
+
+  ::selection {
+    background: theme('colors.saffron.100');
+  }
+}
+
+@layer components {
+  /* Shared "register line" divider used across list/table views to echo
+     the ruled paper of a physical land record register. */
+  .rule {
+    @apply border-b border-paper-line;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+  }
+}

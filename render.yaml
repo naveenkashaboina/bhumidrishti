@@ -1,0 +1,31 @@
+services:
+  - type: web
+    name: bhumidrishti-api
+    env: node
+    rootDir: server
+    buildCommand: npm install
+    startCommand: npm start
+    plan: free
+    healthCheckPath: /health
+    autoDeploy: true
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: 10000
+      - key: MONGODB_URI
+        sync: false # Set in Render Dashboard: e.g. mongodb+srv://<user>:<password>@cluster.mongodb.net/bhumidrishti
+      - key: JWT_SECRET
+        generateValue: true
+      - key: JWT_REFRESH_SECRET
+        generateValue: true
+      - key: ENABLE_REDIS_QUEUE
+        value: "false" # Runs in-memory async pipeline without requiring paid Redis instance
+      - key: OCR_PROVIDER
+        value: tesseract
+      - key: CONFIDENCE_THRESHOLD_OVERALL
+        value: "80"
+      - key: CONFIDENCE_THRESHOLD_FIELD
+        value: "60"
+      - key: CORS_ORIGIN
+        sync: false # Set to your Vercel domain e.g. https://bhumidrishti.vercel.app (auto-allows *.vercel.app)
