@@ -108,6 +108,17 @@ app.use('/api/v1/admin', adminRoutes);
 app.use('/api/v1/integration', integrationRoutes);
 app.use('/api/v1/gis', gisRoutes);
 
+// Root fallback aliases (e.g. /auth/login -> /api/v1/auth/login)
+app.use('/auth', authLimiter, authRoutes);
+app.use('/users', userRoutes);
+app.use('/documents', documentRoutes);
+app.use('/records', recordRoutes);
+app.use('/verification', verificationRoutes);
+app.use('/dashboard', dashboardRoutes);
+app.use('/admin', adminRoutes);
+app.use('/integration', integrationRoutes);
+app.use('/gis', gisRoutes);
+
 // 404 Handler
 app.use((req, res) => {
   return ApiResponse.notFound(res, `Route ${req.method} ${req.originalUrl} not found`);
