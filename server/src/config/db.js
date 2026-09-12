@@ -1,8 +1,18 @@
 const mongoose = require('mongoose');
+const dns = require('dns');
 const env = require('./env');
 const logger = require('../utils/logger');
 
 let isConnected = false;
+
+// Fallback to public DNS if using SRV records on Windows/local networks
+if (env.MONGODB_URI && env.MONGODB_URI.startsWith('mongodb+srv://')) {
+  try {
+    dns.setServers(['8.8.8.8', '1.1.1.1']);
+  } catch (_) {
+    // Keep system defaults if cannot override
+  }
+}
 
 const connectDB = async () => {
   if (isConnected) {
