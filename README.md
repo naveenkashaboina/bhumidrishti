@@ -70,7 +70,6 @@ bhumidrishti/
     │   │   └── AdminConsolePage.jsx          # System configuration, API key management, audit logs
     │   ├── App.jsx                  # React Router with role-based protected routes
     │   └── main.jsx
-    └── FRONTEND_TODO.md             # Original Phase 2 UI roadmap (retained for reference; all screens now implemented)
 ```
 
 ---

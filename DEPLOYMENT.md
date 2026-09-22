@@ -37,6 +37,7 @@ This guide walks you through deploying the **Express.js API Backend on Render** 
    | `JWT_REFRESH_SECRET` | *Random 32+ character string* | Refresh token secret |
    | `ENABLE_REDIS_QUEUE` | `false` | In-memory async pipeline (no paid Redis needed) |
    | `OCR_PROVIDER` | `tesseract` | Indic OCR engine |
+   | `EXTERNAL_REGISTRY_MODE` | `mock` | Cross-check registry adapter mode (`mock` or `live`) |
    | `CORS_ORIGIN` | `https://*.vercel.app` | Allows your Vercel frontend |
 
 5. Click **Create Web Service**.
