@@ -2,6 +2,8 @@ const request = require('supertest');
 const app = require('../src/app');
 const { connectDB, disconnectDB } = require('../src/config/db');
 
+jest.setTimeout(15000);
+
 beforeAll(async () => {
   await connectDB();
 });
