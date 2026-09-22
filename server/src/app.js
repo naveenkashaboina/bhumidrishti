@@ -83,6 +83,21 @@ app.get('/api-docs.json', (req, res) => {
 });
 app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(openapiSpec));
 
+// Root endpoint
+app.get('/', (req, res) => {
+  return ApiResponse.success(
+    res,
+    {
+      service: 'BhumiDrishti API Gateway',
+      version: '1.0.0',
+      status: 'UP',
+      docs: '/api-docs',
+      health: '/health',
+    },
+    'BhumiDrishti API is running'
+  );
+});
+
 // Health check endpoint
 app.get('/health', (req, res) => {
   return ApiResponse.success(
