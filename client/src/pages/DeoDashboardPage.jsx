@@ -41,11 +41,19 @@ export default function DeoDashboardPage() {
       'image/png': ['.png'],
       'image/jpeg': ['.jpg', '.jpeg'],
       'image/tiff': ['.tif', '.tiff'],
+      'text/plain': ['.txt'],
     },
     maxFiles: 1,
-    onDrop: (files) => {
-      if (files.length > 0) {
-        setSelectedFile(files[0]);
+    onDrop: (acceptedFiles, rejectedFiles) => {
+      if (rejectedFiles && rejectedFiles.length > 0) {
+        setUploadMessage({
+          type: 'error',
+          text: `File rejected: ${rejectedFiles[0]?.errors?.[0]?.message || 'Invalid format'}. Allowed: PDF, PNG, JPG, TIFF, TXT`,
+        });
+        return;
+      }
+      if (acceptedFiles && acceptedFiles.length > 0) {
+        setSelectedFile(acceptedFiles[0]);
         setUploadMessage(null);
       }
     },

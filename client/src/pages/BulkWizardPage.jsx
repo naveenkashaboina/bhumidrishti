@@ -32,11 +32,15 @@ export default function BulkWizardPage() {
       'image/png': ['.png'],
       'image/jpeg': ['.jpg', '.jpeg'],
       'image/tiff': ['.tif', '.tiff'],
+      'text/plain': ['.txt'],
     },
     maxFiles: 20,
-    onDrop: (acceptedFiles) => {
+    onDrop: (acceptedFiles, rejectedFiles) => {
+      if (rejectedFiles && rejectedFiles.length > 0) {
+        setError(`Some files were rejected. Allowed formats: PDF, PNG, JPG, TIFF, TXT.`);
+      }
       setFiles((prev) => [...prev, ...acceptedFiles].slice(0, 20));
-      setError('');
+      if (acceptedFiles.length > 0) setError('');
     },
   });
 

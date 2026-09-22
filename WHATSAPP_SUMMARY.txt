@@ -1,0 +1,105 @@
+🌱 *BHUMIDRISHTI (भूमिदृष्टि)* 🌱
+_Smart Multilingual Land Records Digitization & Verification Platform_
+_Smart India Hackathon 2026 | Problem Statement ID 26018_
+_Ministry of Rural Development (Department of Land Resources)_
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+🌟 *1. WHAT IS THIS IN 20 SECONDS?*
+Imagine a government office packed with millions of 50-year-old crumbling paper registers containing land ownership records written in Hindi, Marathi, etc. 
+
+*BhumiDrishti* is an AI-powered web platform that:
+📸 Takes photos/scans of old paper registers.
+🔍 Uses AI vision (OCR) to read regional Indian languages.
+🧠 Extracts owner names, survey numbers, and plot areas.
+🛡️ Checks for fraud, title tampering, and duplicate records.
+🗺️ Plots the land on an interactive satellite GIS map.
+👨‍💼 Gives government officers a split-screen dashboard to verify and approve records in seconds!
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+🇮🇳 *2. THE BIG PROBLEM IN INDIA*
+Across India, over *300 MILLION* land records are still trapped in physical paper books:
+❌ *Decaying Paper:* Moisture, dust, and insects are destroying historical registers.
+❌ *Language Barrier:* Written in regional scripts (Hindi, Marathi, Telugu) with complex legal shorthand.
+❌ *Massive Fraud:* Over *66% of all civil court cases in India* are land disputes! Fraudsters exploit paper records to sell the same plot twice.
+❌ *Slow Typing:* Having clerks manually re-type everything takes decades and leads to countless clerical typos.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+⚙️ *3. HOW IT WORKS (STEP-BY-STEP)*
+
+1️⃣ *UPLOAD:*
+A village operator uploads scans or PDFs (single or bulk batches up to 20 files).
+
+2️⃣ *MULTI-PASS OCR READING:*
+If an old page has faded ink or coffee stains, the system retries reading it using different optical scanning modes (PSM 3 → 6 → 4 → 1) and automatically keeps the clearest result.
+
+3️⃣ *SMART NLP FIELD EXTRACTION:*
+It scans the text and understands legal terms:
+• Owner name (काश्तकार / खातेदाराचे नाव)
+• Survey / Khasra number (सर्वे नं / खसरा)
+• Land area (Acres, Hectares, or Bigha)
+• Village, Tehsil, and District
+
+4️⃣ *CONFIDENCE SCORE:*
+The system calculates how sure it is (0% to 100%). Clear documents are fast-tracked; blurry ones are flagged for officer review.
+
+5️⃣ *ANTI-FRAUD DUPLICATE GUARD:*
+It checks if the exact plot already exists, and uses fuzzy algorithms to catch people trying to steal land with slightly altered name spellings.
+
+6️⃣ *HUMAN-IN-THE-LOOP WORKSPACE:*
+A Revenue Officer (Patwari) sees the original scan on the *left side* and editable extracted fields on the *right side* with color-coded confidence badges (🟢 Green = High, 🟡 Amber = Medium, 🔴 Red = Review).
+
+7️⃣ *GIS MAPPING & CITIZEN PORTAL:*
+Approved plots turn green on a live satellite map, and citizens can check their property online without visiting a government office!
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+👥 *4. WHO USES IT? (5 ROLES)*
+
+👨‍💻 *DEO (Data Entry Operator):* Scans and uploads documents.
+👨‍💼 *Verifier (Patwari / Inspector):* Verifies questionable scans side-by-side and approves/rejects them.
+🏛️ *District Officer (Collector/SDM):* Manages the district, reviews disputes, and publishes records to the public.
+📊 *State Admin:* Monitors state-wide digitization progress on analytics heatmaps.
+🔐 *Super Admin:* National ministry director managing system settings and security audit logs.
+👨‍🌾 *Everyday Citizen:* Can search their land status publicly (private details like Aadhaar are automatically masked for privacy).
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+💻 *5. WHAT DOES THE WEBSITE HAVE? (10 SCREENS)*
+
+1. *Login Page:* Official portal with 1-click demo role logins.
+2. *DEO Dashboard:* Single upload drag-and-drop zone.
+3. *Bulk Upload Wizard:* Batch upload up to 20 files with live progress bars.
+4. *Records Directory:* Filterable list of all digitized land records with CSV/JSON download.
+5. *Record Detail:* Full property ledger showing owners, mutation history, and audit timeline.
+6. *Verification Workspace:* Split-screen workstation with document zoom/rotate and color-coded confidence pills.
+7. *GIS Cadastral Map:* Interactive satellite map showing color-coded plot boundaries.
+8. *Analytics Dashboard:* Real-time charts showing processing volume, accuracy rates, and error trends.
+9. *Citizen Lookup:* Public search page by Survey Number.
+10. *Admin Console:* Security audit trails and AI sensitivity sliders.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+🧠 *6. SMART TECH HIGHLIGHTS*
+
+• *Dual-Language Mastery:* Reads Hindi, Marathi, and English revenue documents seamlessly.
+• *AI Learning Loop:* Whenever an officer fixes a typo, the system remembers the correction to improve future accuracy.
+• *Tamper-Proof Audit Trail:* Every single upload, edit, or approval is permanently logged with timestamps, user details, and IP address.
+• *Real Engineering:* Built with the modern MERN stack (MongoDB, Express, React, Node.js) and 100% automated test coverage.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+🌐 *7. TRY THE LIVE APP!*
+
+🔗 *Live Website:* https://bhumidrishti.vercel.app
+🔗 *Backend Health:* https://bhumidrishti-api.onrender.com/health
+
+🔑 *Demo Login Credentials:*
+• *Email:* district.pune@bhumidrishti.gov.in
+• *Password:* District@123
+_(Or use the quick-fill buttons right on the login page!)_
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━
+✨ *BhumiDrishti: Digitizing India's Land, One Cadastral Sheet at a Time.*
