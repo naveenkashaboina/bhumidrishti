@@ -23,6 +23,8 @@ services:
         value: "false" # Runs in-memory async pipeline without requiring paid Redis instance
       - key: OCR_PROVIDER
         value: tesseract
+      - key: EXTERNAL_REGISTRY_MODE
+        value: "mock"
       - key: CONFIDENCE_THRESHOLD_OVERALL
         value: "80"
       - key: CONFIDENCE_THRESHOLD_FIELD

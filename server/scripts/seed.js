@@ -276,6 +276,7 @@ const seed = async () => {
             tehsil,
             village,
             geo: geoPolygon,
+            geoSource: 'boundary_geojson',
           },
           landClassification: LAND_CLASSIFICATIONS[counter % LAND_CLASSIFICATIONS.length],
           ownershipDetails: {
@@ -308,8 +309,8 @@ const seed = async () => {
           },
           flaggedFields,
           crossCheck: {
-            lrms: { status: 'MATCHED', checkedAt: new Date(), referenceId: `LRMS-${surveyNo}` },
-            dilrmp: { status: 'MATCHED', checkedAt: new Date(), referenceId: `ULPIN-${counter}` },
+            lrms: { status: 'MATCHED', checkedAt: new Date(), referenceId: `LRMS-${surveyNo}`, simulated: true },
+            dilrmp: { status: 'MATCHED', checkedAt: new Date(), referenceId: `ULPIN-${counter}`, simulated: true },
           },
           verifiedBy,
           verifiedAt: verifiedBy ? new Date() : null,

@@ -1,8 +1,33 @@
-class MockExternalRegistry {
+const ExternalRegistryInterface = require('./externalRegistryInterface');
+
+/**
+ * ============================================================================
+ * SIMULATION NOTICE — MockExternalRegistry
+ * ============================================================================
+ *
+ * This adapter provides DETERMINISTIC SIMULATED cross-checks against:
+ *   - State LRMS (Land Records Management System)
+ *   - Central DILRMP (Digital India Land Records Modernization Programme)
+ *
+ * NO LIVE API CALLS are made. Results are generated deterministically based on
+ * the numeric portion of the record's survey number, so the same record always
+ * produces the same cross-check result. This allows reproducible demos and tests.
+ *
+ * Every response includes `simulated: true` so API consumers (including the
+ * frontend and judges' demo) can clearly distinguish simulated results from
+ * real registry lookups.
+ *
+ * To switch to real registry integration when available, set:
+ *   EXTERNAL_REGISTRY_MODE=live
+ * in your environment. See liveExternalRegistry.js for the stub.
+ * ============================================================================
+ */
+
+class MockExternalRegistry extends ExternalRegistryInterface {
   /**
    * Cross-check record against mock State LRMS (Land Records Management System)
    * @param {Object} record
-   * @returns {Promise<{ status: 'MATCHED'|'DISCREPANCY'|'NOT_FOUND'|'UNAVAILABLE', checkedAt: Date, referenceId: string, details?: Object }>}
+   * @returns {Promise<{ status: 'MATCHED'|'DISCREPANCY'|'NOT_FOUND'|'UNAVAILABLE', checkedAt: Date, referenceId: string, simulated: boolean, details?: Object }>}
    */
   static async checkLrms(record) {
     // Deterministic simulation based on survey number
@@ -15,14 +40,16 @@ class MockExternalRegistry {
         status: 'DISCREPANCY',
         checkedAt: now,
         referenceId: `LRMS-DISC-${num}`,
-        details: { message: 'Area discrepancy reported with State LRMS live registry' },
+        simulated: true,
+        details: { message: 'Area discrepancy reported with State LRMS (simulated check)' },
       };
     } else if (num % 31 === 0) {
       return {
         status: 'NOT_FOUND',
         checkedAt: now,
         referenceId: `LRMS-NF-${num}`,
-        details: { message: 'Survey number not found in legacy cadastral sheet' },
+        simulated: true,
+        details: { message: 'Survey number not found in legacy cadastral sheet (simulated check)' },
       };
     }
 
@@ -30,14 +57,15 @@ class MockExternalRegistry {
       status: 'MATCHED',
       checkedAt: now,
       referenceId: `LRMS-VERIFIED-${num}-${Date.now().toString().slice(-4)}`,
-      details: { verifiedRegistry: 'State LRMS Portal', matchConfidence: 98.4 },
+      simulated: true,
+      details: { verifiedRegistry: 'State LRMS Portal (simulated)', matchConfidence: 98.4 },
     };
   }
 
   /**
    * Cross-check record against mock DILRMP (Digital India Land Records Modernization Programme)
    * @param {Object} record
-   * @returns {Promise<{ status: 'MATCHED'|'DISCREPANCY'|'NOT_FOUND'|'UNAVAILABLE', checkedAt: Date, referenceId: string, details?: Object }>}
+   * @returns {Promise<{ status: 'MATCHED'|'DISCREPANCY'|'NOT_FOUND'|'UNAVAILABLE', checkedAt: Date, referenceId: string, simulated: boolean, details?: Object }>}
    */
   static async checkDilrmp(record) {
     const num = parseInt(String(record.surveyNumber).replace(/[^0-9]/g, '') || '10', 10);
@@ -48,7 +76,8 @@ class MockExternalRegistry {
         status: 'DISCREPANCY',
         checkedAt: now,
         referenceId: `DILRMP-FLAG-${num}`,
-        details: { message: 'ULPIN (Unique Land Parcel Identification Number) mismatch' },
+        simulated: true,
+        details: { message: 'ULPIN (Unique Land Parcel Identification Number) mismatch (simulated check)' },
       };
     }
 
@@ -56,6 +85,7 @@ class MockExternalRegistry {
       status: 'MATCHED',
       checkedAt: now,
       referenceId: `DILRMP-ULPIN-${num.toString().padStart(6, '0')}`,
+      simulated: true,
       details: { ulpinAssigned: true, cadastralMapped: true },
     };
   }

@@ -13,6 +13,7 @@ module.exports = {
     PROCESSING: 'PROCESSING',
     PROCESSED: 'PROCESSED',
     FAILED: 'FAILED',
+    OCR_FAILED: 'OCR_FAILED',
   },
 
   RECORD_STATUS: {

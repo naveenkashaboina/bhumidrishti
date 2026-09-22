@@ -35,7 +35,6 @@ const geoSchema = new mongoose.Schema(
     },
     coordinates: {
       type: mongoose.Schema.Types.Mixed,
-      required: true,
       default: [],
     },
   },
@@ -86,6 +85,11 @@ const landRecordSchema = new mongoose.Schema(
       tehsil: { type: String, required: true, trim: true },
       village: { type: String, required: true, trim: true },
       geo: { type: geoSchema, default: null },
+      geoSource: {
+        type: String,
+        enum: ['surveyed', 'approximate', 'none'],
+        default: 'none',
+      },
     },
     landClassification: {
       type: String,
@@ -135,11 +139,13 @@ const landRecordSchema = new mongoose.Schema(
         status: { type: String, enum: ['MATCHED', 'DISCREPANCY', 'NOT_FOUND', 'UNAVAILABLE'], default: 'UNAVAILABLE' },
         checkedAt: { type: Date, default: null },
         referenceId: { type: String, default: null },
+        simulated: { type: Boolean, default: false },
       },
       dilrmp: {
         status: { type: String, enum: ['MATCHED', 'DISCREPANCY', 'NOT_FOUND', 'UNAVAILABLE'], default: 'UNAVAILABLE' },
         checkedAt: { type: Date, default: null },
         referenceId: { type: String, default: null },
+        simulated: { type: Boolean, default: false },
       },
     },
     verifiedBy: {

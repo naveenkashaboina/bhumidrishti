@@ -12,16 +12,21 @@ India's legacy land records (Khata/Khatauni registers, Khasra cadastral sheets, 
 
 **BhumiDrishti** provides an end-to-end automated digitization, validation, and human-in-the-loop verification ecosystem:
 1. **Multilingual Ingestion:** Single & bulk upload of scans, PDFs, and historical registers with OCR language hints.
-2. **Pluggable OCR & NLP Field Classification:** Extracts landowner details, survey/khasra/khata numbers, plot area, village/tehsil/district, land classification, mutation records, and registration details.
-3. **Confidence Scoring & Flagging:** Computes field-level and overall extraction confidence (0–100%), auto-flagging low-confidence or anomalous records.
-4. **Automated Business Rules & Duplicate Detection:** Deterministic composite key (`district + tehsil + village + surveyNumber`) matching combined with fuzzy Levenshtein landowner name similarity to prevent duplicate land titles.
-5. **Cross-Database Verification:** Pluggable adapter interface cross-checking against state LRMS and central DILRMP registries.
-6. **Human-Assisted Verification Workspace:** High-confidence records fast-track to approval; flagged or uncertain records route to revenue officers (Patwari/Tehsildar) with side-by-side scan view and field-level corrections.
-7. **AI Learning Loop:** Every human correction is recorded to a `Feedback` collection to calibrate confidence thresholds and retrain future NER models.
-8. **GIS Cadastral Mapping:** Stores GeoJSON plot polygons and exposes endpoints for cadastral map visualizers and regional progress heatmaps.
-9. **Role-Based Access Control (RBAC):** Jurisdiction-scoped queries ensuring village/tehsil/district officers access only their assigned revenue jurisdictions.
-10. **External Integration API:** Scoped, API-key authenticated endpoints for LRMS, DILRMP, and GIS platforms with automatic PII masking.
-11. **Interactive Dashboards & Audit Trails:** Real-time metrics on processing volume, accuracy trends, error distributions, and append-only immutable audit logging.
+2. **Multi-Pass OCR:** Tesseract.js Indic/English OCR with automatic multi-pass retry — when initial confidence is low, the system retries with different page segmentation modes (PSM 3→6→4→1) and selects the highest-confidence result.
+3. **NLP Field Classification with Dynamic Confidence:** Rule-based multilingual regex classifier that computes per-field confidence dynamically from actual match quality (match ratio, anchor word presence, input text length) rather than static constants.
+4. **Confidence Blending:** Overall extraction confidence is computed as:  
+   `overall = (NLP field confidence × 0.7) + (OCR engine confidence × 0.3)`  
+   NLP quality receives higher weight because field-level extraction accuracy is more indicative of record usability than raw OCR text confidence.
+5. **Automated Business Rules & Duplicate Detection:** Deterministic composite key (`district + tehsil + village + surveyNumber`) matching combined with fuzzy Levenshtein landowner name similarity to prevent duplicate land titles.
+6. **Cross-Database Verification:** Pluggable adapter interface for cross-checking against state LRMS and central DILRMP registries. Currently uses deterministic simulations (`simulated: true` in API responses) — swap to live integration by setting `EXTERNAL_REGISTRY_MODE=live` when real API endpoints are available.
+7. **Human-Assisted Verification Workspace:** High-confidence records fast-track to approval; flagged or uncertain records route to revenue officers (Patwari/Tehsildar) with side-by-side scan view and field-level corrections.
+8. **AI Learning Loop:** Every human correction is recorded to a `Feedback` collection to calibrate confidence thresholds and retrain future NER models.
+9. **GIS Cadastral Mapping:** Stores GeoJSON plot polygons with explicit provenance tracking (`geoSource: 'surveyed' | 'approximate' | 'none'`). Approximate polygons are generated deterministically from district centroids; surveyed polygons are attached via the GIS API by human verifiers.
+10. **Role-Based Access Control (RBAC):** Jurisdiction-scoped queries ensuring village/tehsil/district officers access only their assigned revenue jurisdictions.
+11. **External Integration API:** Scoped, API-key authenticated endpoints for LRMS, DILRMP, and GIS platforms with automatic PII masking.
+12. **Interactive Dashboards & Audit Trails:** Real-time metrics on processing volume, accuracy trends, error distributions, and append-only immutable audit logging.
+
+> **Simulated Components:** LRMS/DILRMP cross-check results are currently deterministic simulations (clearly labeled with `simulated: true` in API responses and DB documents). GIS plot polygons generated during OCR extraction use approximate district centroids (labeled `geoSource: 'approximate'`) until real surveyed boundaries are provided via the GIS API.
 
 ---
 
@@ -32,15 +37,15 @@ bhumidrishti/
 ├── docker-compose.yml               # MongoDB, Redis, MinIO, Server, Worker
 ├── server/                          # Fully implemented Express.js backend
 │   ├── src/
-│   │   ├── config/                  # DB, environment, domain constants
+│   │   ├── config/                  # DB, environment, domain constants, district centroids
 │   │   ├── models/                  # User, Document, LandRecord, VerificationTask, Feedback, AuditLog, ApiClient, SystemConfig
 │   │   ├── routes/                  # auth, users, documents, records, verification, dashboard, admin, integration, gis
 │   │   ├── controllers/             # Business controllers matching Section 8 contracts
 │   │   ├── services/                # validationEngine, duplicateDetectionService, auditService, storageService, queueService
 │   │   ├── adapters/
-│   │   │   ├── ocr/                 # Tesseract.js Indic/English OCR adapter
-│   │   │   ├── nlpClassifier/       # Multilingual rule-based field classifier
-│   │   │   └── externalRegistry/    # Mock LRMS & DILRMP cross-check adapters
+│   │   │   ├── ocr/                 # Multi-pass Tesseract.js Indic/English OCR adapter with PSM retry
+│   │   │   ├── nlpClassifier/       # Multilingual rule-based field classifier with dynamic confidence
+│   │   │   └── externalRegistry/    # Mock + Live (stub) LRMS & DILRMP cross-check adapters
 │   │   ├── middlewares/             # auth (JWT), rbac (role + jurisdiction), apiKey, validation (Zod), errorHandler
 │   │   ├── jobs/                    # BullMQ extraction queue & worker pipeline
 │   │   ├── swagger/                 # OpenAPI 3.0 specification & Swagger UI
@@ -49,13 +54,23 @@ bhumidrishti/
 │   ├── scripts/seed.js              # Comprehensive demo database seeder (70 realistic records across 3 states)
 │   └── tests/                       # Jest + Supertest integration test suite
 │
-└── client/                          # React frontend outline scaffold
+└── client/                          # Fully implemented React + Vite frontend
     ├── src/
     │   ├── services/api.js          # Complete, typed API client wrapper mirroring backend contracts
-    │   ├── pages/                   # 10 Screen stubs with TODO annotations
-    │   ├── App.jsx                  # React Router skeleton
+    │   ├── pages/                   # 10 fully implemented screens:
+    │   │   ├── LoginPage.jsx                 # Government-branded login with role-based quick-fill demo credentials
+    │   │   ├── DeoDashboardPage.jsx          # DEO "My Uploads" dashboard with single/bulk upload triggers
+    │   │   ├── BulkWizardPage.jsx            # Multi-file batch upload wizard with progress tracking
+    │   │   ├── RecordsListPage.jsx           # Paginated, filterable land records listing with status chips
+    │   │   ├── RecordDetailPage.jsx          # Full record detail view with confidence scores, cross-checks, audit trail
+    │   │   ├── VerificationWorkspacePage.jsx # Side-by-side scan viewer + field correction workspace
+    │   │   ├── AnalyticsDashboardPage.jsx    # State/district analytics with charts and accuracy trends
+    │   │   ├── GisMapViewPage.jsx            # Interactive GIS cadastral map with GeoJSON plot overlays
+    │   │   ├── CitizenLookupPage.jsx         # Public record lookup by survey number or owner name
+    │   │   └── AdminConsolePage.jsx          # System configuration, API key management, audit logs
+    │   ├── App.jsx                  # React Router with role-based protected routes
     │   └── main.jsx
-    └── FRONTEND_TODO.md             # Screen-by-screen Phase 2 UI implementation guide
+    └── FRONTEND_TODO.md             # Original Phase 2 UI roadmap (retained for reference; all screens now implemented)
 ```
 
 ---
@@ -89,7 +104,7 @@ The server will boot at:
 - **OpenAPI JSON Spec:** `http://localhost:5000/api-docs.json`
 - **Health Check:** `http://localhost:5000/health`
 
-### Step 2: Running the Frontend Shell
+### Step 2: Running the Frontend
 ```bash
 # Navigate to client
 cd client
@@ -100,7 +115,7 @@ npm install
 # Start Vite development server
 npm run dev
 ```
-The client shell boots at `http://localhost:3000`.
+The client boots at `http://localhost:3000`.
 
 ---
 

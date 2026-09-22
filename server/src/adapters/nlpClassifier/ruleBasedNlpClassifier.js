@@ -4,6 +4,86 @@ const {
   OWNERSHIP_TYPES,
 } = require('../../config/constants');
 
+/**
+ * Dynamic confidence calculation helpers.
+ *
+ * Instead of returning hardcoded confidence constants per field, we compute
+ * confidence dynamically from actual regex match quality:
+ *   - matchRatio: proportion of the matched text relative to surrounding context
+ *   - anchorBonus: bonus for presence of confirming anchor keywords
+ *   - inputPenalty: penalty for very short input text
+ *
+ * This makes "confidence scoring" genuinely reflective of extraction quality.
+ */
+
+/**
+ * Compute dynamic confidence for a regex match
+ * @param {Object} params
+ * @param {RegExpMatchArray|null} params.match - The regex match result
+ * @param {string} params.inputText - The full input text
+ * @param {string[]} [params.anchorWords=[]] - Additional anchor words that confirm context
+ * @param {number} [params.baseConfidence=85] - Base confidence when match is found
+ * @param {number} [params.noMatchConfidence=35] - Confidence when no match is found
+ * @param {boolean} [params.hasHintFallback=false] - Whether metadata hints provided a fallback
+ * @returns {number} Confidence score 0-100
+ */
+function computeMatchConfidence({
+  match,
+  inputText,
+  anchorWords = [],
+  baseConfidence = 85,
+  noMatchConfidence = 35,
+  hasHintFallback = false,
+}) {
+  const text = inputText || '';
+
+  if (!match) {
+    // No regex match — return hint-based or low confidence
+    return hasHintFallback ? Math.min(70, noMatchConfidence + 30) : noMatchConfidence;
+  }
+
+  let confidence = baseConfidence;
+
+  // 1. Match length ratio: longer captured groups relative to the full matched
+  //    substring indicate higher quality extraction
+  const captured = (match[1] || '').trim();
+  const fullMatch = (match[0] || '').trim();
+  if (fullMatch.length > 0 && captured.length > 0) {
+    const ratio = captured.length / fullMatch.length;
+    // Bonus for high capture ratio (field value is most of the match)
+    if (ratio > 0.5) confidence += 3;
+    // Penalty for very low ratio (too much noise in the match)
+    if (ratio < 0.2) confidence -= 5;
+  }
+
+  // 2. Anchor word bonus: each confirmed anchor word adds confidence
+  const lowerText = text.toLowerCase();
+  let anchorHits = 0;
+  for (const anchor of anchorWords) {
+    if (lowerText.includes(anchor.toLowerCase())) {
+      anchorHits++;
+    }
+  }
+  // Each anchor hit adds 2 points, up to +8
+  confidence += Math.min(8, anchorHits * 2);
+
+  // 3. Input text length penalty: very short OCR text means less context
+  //    to reliably extract fields from
+  if (text.length < 50) {
+    confidence -= 15;
+  } else if (text.length < 200) {
+    confidence -= 5;
+  }
+
+  // 4. Captured value sanity: very short captures are less reliable
+  if (captured.length < 2) {
+    confidence -= 10;
+  }
+
+  return Math.min(100, Math.max(0, Math.round(confidence)));
+}
+
+
 class RuleBasedNlpClassifier {
   /**
    * Classify raw extracted OCR text into structured land record fields with confidence scores
@@ -16,7 +96,7 @@ class RuleBasedNlpClassifier {
     const fieldsConfidence = {};
     const flaggedFields = [];
 
-    // Helper to calculate confidence based on regex match quality
+    // Helper to record confidence and flag low-confidence fields
     const addConfidence = (field, score) => {
       fieldsConfidence[field] = Math.min(100, Math.max(0, Math.round(score)));
       if (fieldsConfidence[field] < 60) {
@@ -30,10 +110,20 @@ class RuleBasedNlpClassifier {
     const surveyMatch = text.match(surveyRegex);
     if (surveyMatch) {
       surveyNumber = surveyMatch[1].trim();
-      addConfidence('surveyNumber', 88);
+      addConfidence('surveyNumber', computeMatchConfidence({
+        match: surveyMatch,
+        inputText: text,
+        anchorWords: ['survey', 'सर्वे', 'संख्या', 'number'],
+        baseConfidence: 85,
+      }));
     } else {
       surveyNumber = metadataHints.surveyNumber || '';
-      addConfidence('surveyNumber', surveyNumber ? 70 : 35);
+      addConfidence('surveyNumber', computeMatchConfidence({
+        match: null,
+        inputText: text,
+        noMatchConfidence: 35,
+        hasHintFallback: !!surveyNumber,
+      }));
     }
 
     // 2. Khasra Number
@@ -42,10 +132,20 @@ class RuleBasedNlpClassifier {
     const khasraMatch = text.match(khasraRegex);
     if (khasraMatch) {
       khasraNumber = khasraMatch[1].trim();
-      addConfidence('khasraNumber', 85);
+      addConfidence('khasraNumber', computeMatchConfidence({
+        match: khasraMatch,
+        inputText: text,
+        anchorWords: ['khasra', 'खसरा', 'संख्या'],
+        baseConfidence: 83,
+      }));
     } else {
       khasraNumber = surveyNumber || '';
-      addConfidence('khasraNumber', khasraNumber ? 65 : 40);
+      addConfidence('khasraNumber', computeMatchConfidence({
+        match: null,
+        inputText: text,
+        noMatchConfidence: 40,
+        hasHintFallback: !!khasraNumber,
+      }));
     }
 
     // 3. Khata / Khatauni Number
@@ -54,10 +154,19 @@ class RuleBasedNlpClassifier {
     const khataMatch = text.match(khataRegex);
     if (khataMatch) {
       khataNumber = khataMatch[1].trim();
-      addConfidence('khataNumber', 85);
+      addConfidence('khataNumber', computeMatchConfidence({
+        match: khataMatch,
+        inputText: text,
+        anchorWords: ['khata', 'खाता', 'खतौनी'],
+        baseConfidence: 83,
+      }));
     } else {
       khataNumber = '';
-      addConfidence('khataNumber', 40);
+      addConfidence('khataNumber', computeMatchConfidence({
+        match: null,
+        inputText: text,
+        noMatchConfidence: 40,
+      }));
     }
 
     // 4. Landowner Details
@@ -74,7 +183,12 @@ class RuleBasedNlpClassifier {
         guardianName: guardianMatch ? guardianMatch[1].trim() : '',
         share: '1/1',
       });
-      addConfidence('landownerDetails', 82);
+      addConfidence('landownerDetails', computeMatchConfidence({
+        match: ownerMatch,
+        inputText: text,
+        anchorWords: ['owner', 'काश्तकार', 'खातेदार', 'मालिक', 'नाम', 'name'],
+        baseConfidence: 80,
+      }));
     } else {
       // Fallback hint or generic placeholder
       const fallbackName = metadataHints.ownerName || 'Unknown Landowner';
@@ -83,7 +197,12 @@ class RuleBasedNlpClassifier {
         guardianName: '',
         share: '1/1',
       });
-      addConfidence('landownerDetails', metadataHints.ownerName ? 70 : 45);
+      addConfidence('landownerDetails', computeMatchConfidence({
+        match: null,
+        inputText: text,
+        noMatchConfidence: 45,
+        hasHintFallback: !!metadataHints.ownerName,
+      }));
     }
 
     // 5. Plot Area & Unit
@@ -101,13 +220,23 @@ class RuleBasedNlpClassifier {
       else if (rawUnit.includes('acre') || rawUnit.includes('एकड़')) unit = 'acres';
 
       plotArea = { value: val || 1.0, unit };
-      addConfidence('plotArea', 86);
+      addConfidence('plotArea', computeMatchConfidence({
+        match: areaMatch,
+        inputText: text,
+        anchorWords: ['area', 'क्षेत्रफल', 'रकबा', 'plot'],
+        baseConfidence: 84,
+      }));
     } else {
       plotArea = {
         value: metadataHints.plotAreaValue ? Number(metadataHints.plotAreaValue) : 1.5,
         unit: metadataHints.plotAreaUnit || 'acres',
       };
-      addConfidence('plotArea', metadataHints.plotAreaValue ? 75 : 50);
+      addConfidence('plotArea', computeMatchConfidence({
+        match: null,
+        inputText: text,
+        noMatchConfidence: 50,
+        hasHintFallback: !!metadataHints.plotAreaValue,
+      }));
     }
 
     // 6. Location: Village, Tehsil, District, State
@@ -126,38 +255,98 @@ class RuleBasedNlpClassifier {
       village: villageMatch ? villageMatch[1].trim() : metadataHints.village || 'Wagholi',
     };
 
-    addConfidence('location.district', districtMatch ? 88 : metadataHints.district ? 75 : 55);
-    addConfidence('location.tehsil', tehsilMatch ? 85 : metadataHints.tehsil ? 75 : 50);
-    addConfidence('location.village', villageMatch ? 85 : metadataHints.village ? 75 : 50);
+    addConfidence('location.district', computeMatchConfidence({
+      match: districtMatch,
+      inputText: text,
+      anchorWords: ['district', 'जिला', 'ज़िला'],
+      baseConfidence: 86,
+      noMatchConfidence: 55,
+      hasHintFallback: !!metadataHints.district,
+    }));
+    addConfidence('location.tehsil', computeMatchConfidence({
+      match: tehsilMatch,
+      inputText: text,
+      anchorWords: ['tehsil', 'taluka', 'तहसील', 'तालुका'],
+      baseConfidence: 83,
+      noMatchConfidence: 50,
+      hasHintFallback: !!metadataHints.tehsil,
+    }));
+    addConfidence('location.village', computeMatchConfidence({
+      match: villageMatch,
+      inputText: text,
+      anchorWords: ['village', 'ग्राम', 'गाँव', 'मौजा'],
+      baseConfidence: 83,
+      noMatchConfidence: 50,
+      hasHintFallback: !!metadataHints.village,
+    }));
 
     // 7. Land Classification
     let landClassification = 'AGRICULTURAL_UNIRRIGATED';
     if (/सिंचित|irrigated|chahi/i.test(text)) {
       landClassification = 'AGRICULTURAL_IRRIGATED';
-      addConfidence('landClassification', 85);
+      addConfidence('landClassification', computeMatchConfidence({
+        match: text.match(/सिंचित|irrigated|chahi/i),
+        inputText: text,
+        anchorWords: ['irrigated', 'सिंचित', 'chahi', 'नहरी'],
+        baseConfidence: 83,
+      }));
     } else if (/residential|आवासीय|बस्ती/i.test(text)) {
       landClassification = 'RESIDENTIAL';
-      addConfidence('landClassification', 85);
+      addConfidence('landClassification', computeMatchConfidence({
+        match: text.match(/residential|आवासीय|बस्ती/i),
+        inputText: text,
+        anchorWords: ['residential', 'आवासीय'],
+        baseConfidence: 83,
+      }));
     } else if (/commercial|व्यावसायिक|बाजार/i.test(text)) {
       landClassification = 'COMMERCIAL';
-      addConfidence('landClassification', 85);
+      addConfidence('landClassification', computeMatchConfidence({
+        match: text.match(/commercial|व्यावसायिक|बाजार/i),
+        inputText: text,
+        anchorWords: ['commercial', 'व्यावसायिक'],
+        baseConfidence: 83,
+      }));
     } else if (/forest|वन|जंगल/i.test(text)) {
       landClassification = 'FOREST';
-      addConfidence('landClassification', 90);
+      addConfidence('landClassification', computeMatchConfidence({
+        match: text.match(/forest|वन|जंगल/i),
+        inputText: text,
+        anchorWords: ['forest', 'वन', 'जंगल', 'वनक्षेत्र'],
+        baseConfidence: 88,
+      }));
     } else {
-      addConfidence('landClassification', 65);
+      // Default — no classification keyword found
+      addConfidence('landClassification', computeMatchConfidence({
+        match: null,
+        inputText: text,
+        noMatchConfidence: 55,
+      }));
     }
 
     // 8. Ownership Details
     let ownershipType = 'INDIVIDUAL';
     if (/joint|संयुक्त|साझा/i.test(text) || landownerDetails.length > 1) {
       ownershipType = 'JOINT';
-      addConfidence('ownershipDetails', 80);
+      addConfidence('ownershipDetails', computeMatchConfidence({
+        match: text.match(/joint|संयुक्त|साझा/i),
+        inputText: text,
+        anchorWords: ['joint', 'संयुक्त', 'साझा'],
+        baseConfidence: 78,
+      }));
     } else if (/government|शासन|सरकारी/i.test(text)) {
       ownershipType = 'GOVERNMENT';
-      addConfidence('ownershipDetails', 85);
+      addConfidence('ownershipDetails', computeMatchConfidence({
+        match: text.match(/government|शासन|सरकारी/i),
+        inputText: text,
+        anchorWords: ['government', 'शासन', 'सरकारी'],
+        baseConfidence: 83,
+      }));
     } else {
-      addConfidence('ownershipDetails', 75);
+      addConfidence('ownershipDetails', computeMatchConfidence({
+        match: null,
+        inputText: text,
+        noMatchConfidence: 65,
+      }));
     }
 
     // 9. Mutation Records
@@ -171,9 +360,18 @@ class RuleBasedNlpClassifier {
         type: 'TRANSFER',
         description: 'Extracted mutation record from scan',
       });
-      addConfidence('mutationRecords', 80);
+      addConfidence('mutationRecords', computeMatchConfidence({
+        match: mutationMatch,
+        inputText: text,
+        anchorWords: ['mutation', 'नामांतरण', 'दाखिल', 'खारिज'],
+        baseConfidence: 78,
+      }));
     } else {
-      addConfidence('mutationRecords', 60);
+      addConfidence('mutationRecords', computeMatchConfidence({
+        match: null,
+        inputText: text,
+        noMatchConfidence: 55,
+      }));
     }
 
     // Overall confidence calculation

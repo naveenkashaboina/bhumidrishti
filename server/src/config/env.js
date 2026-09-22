@@ -22,6 +22,7 @@ const env = {
   CONFIDENCE_THRESHOLD_FIELD: parseInt(process.env.CONFIDENCE_THRESHOLD_FIELD || '60', 10),
   LOG_LEVEL: process.env.LOG_LEVEL || 'info',
   CORS_ORIGIN: process.env.CORS_ORIGIN || '*',
+  EXTERNAL_REGISTRY_MODE: process.env.EXTERNAL_REGISTRY_MODE || 'mock',
 };
 
 module.exports = env;

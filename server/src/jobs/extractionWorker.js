@@ -8,12 +8,20 @@ const DuplicateDetectionService = require('../services/duplicateDetectionService
 const TesseractAdapter = require('../adapters/ocr/tesseractAdapter');
 const RuleBasedNlpClassifier = require('../adapters/nlpClassifier/ruleBasedNlpClassifier');
 const MockExternalRegistry = require('../adapters/externalRegistry/mockExternalRegistry');
+const LiveExternalRegistry = require('../adapters/externalRegistry/liveExternalRegistry');
 const AuditService = require('../services/auditService');
 const logger = require('../utils/logger');
 const { DOCUMENT_STATUS, RECORD_STATUS, TASK_PRIORITY } = require('../config/constants');
 const env = require('../config/env');
+const { approximateGeoFromDistrict } = require('../config/districtCentroids');
 
 const ocrAdapter = new TesseractAdapter();
+
+// Select external registry adapter based on environment configuration.
+// Default is 'mock' — switch to 'live' only when real LRMS/DILRMP APIs are configured.
+const ExternalRegistry = env.EXTERNAL_REGISTRY_MODE === 'live'
+  ? LiveExternalRegistry
+  : MockExternalRegistry;
 
 class ExtractionWorker {
   /**
@@ -50,23 +58,16 @@ class ExtractionWorker {
         ocrConfidence = ocrResult.confidence || 75;
       }
 
-      // If OCR yielded no text (e.g. dummy binary or synthetic mock scan), provide heuristic fallback
+      // If OCR yielded insufficient text, mark the document as OCR_FAILED and
+      // do NOT create a LandRecord. This replaces the previous fallback that
+      // fabricated fake Hindi land record data.
       if (!rawText || rawText.trim().length < 5) {
-        logger.warn(`Document ${documentId} yielded minimal OCR text, applying heuristic scan simulation`);
-        rawText = `
-          भूमि रिकॉर्ड (Land Record Register)
-          जिला: ${doc.sourceOffice.district}
-          तहसील: ${doc.sourceOffice.tehsil}
-          ग्राम: ${doc.sourceOffice.village}
-          सर्वे संख्या: ${Math.floor(100 + Math.random() * 900)}/${Math.floor(1 + Math.random() * 9)}
-          खसरा संख्या: ${Math.floor(100 + Math.random() * 900)}
-          खाता संख्या: ${Math.floor(10 + Math.random() * 90)}
-          काश्तकार का नाम: रामकुमार शर्मा
-          पिता का नाम: दीनदयाल शर्मा
-          रकबा / क्षेत्रफल: ${(1 + Math.random() * 5).toFixed(2)} एकड़
-          भूमि वर्गीकरण: कृषि असिंचित
-          दाखिल खारिज संख्या: MUT-${Date.now().toString().slice(-6)}
-        `;
+        logger.warn(`Document ${documentId} yielded insufficient OCR text (${(rawText || '').trim().length} chars) — marking as OCR_FAILED`);
+        doc.status = DOCUMENT_STATUS.OCR_FAILED;
+        doc.processingError = 'OCR yielded insufficient text — document may be illegible or corrupted. ' +
+          'Please re-upload a clearer scan or manually enter the record data.';
+        await doc.save();
+        return null;
       }
 
       // Step 3: NLP Field Classification
@@ -82,6 +83,9 @@ class ExtractionWorker {
       const flaggedFields = [...classification.flaggedFields];
 
       // Blend OCR confidence into overall confidence
+      // Formula: overall = (NLP confidence × 0.7) + (OCR confidence × 0.3)
+      // Rationale: NLP field extraction quality is more indicative of record
+      // accuracy than raw OCR confidence, but OCR quality still matters.
       confidence.overall = Math.round((confidence.overall * 0.7) + (ocrConfidence * 0.3));
 
       // Step 4: Business Rules Validation Engine
@@ -100,9 +104,11 @@ class ExtractionWorker {
         flaggedFields.push(`duplicate: ${duplicateResult.message}`);
       }
 
-      // Step 6: Mock Cross-Database Verification (LRMS & DILRMP)
-      const lrmsCheck = await MockExternalRegistry.checkLrms(structured);
-      const dilrmpCheck = await MockExternalRegistry.checkDilrmp(structured);
+      // Step 6: Cross-Database Verification (LRMS & DILRMP)
+      // When using MockExternalRegistry, responses include simulated: true
+      // so API consumers can distinguish simulated from live results.
+      const lrmsCheck = await ExternalRegistry.checkLrms(structured);
+      const dilrmpCheck = await ExternalRegistry.checkDilrmp(structured);
 
       if (lrmsCheck.status === 'DISCREPANCY') {
         flaggedFields.push('crosscheck_discrepancy: State LRMS registry mismatch');
@@ -122,19 +128,13 @@ class ExtractionWorker {
       }
 
       // Step 8: Persist LandRecord
-      // Provide fallback coordinates if not present (simple polygon around district coordinates)
-      const mockPolygon = {
-        type: 'Polygon',
-        coordinates: [
-          [
-            [73.85 + Math.random() * 0.05, 18.52 + Math.random() * 0.05],
-            [73.86 + Math.random() * 0.05, 18.52 + Math.random() * 0.05],
-            [73.86 + Math.random() * 0.05, 18.53 + Math.random() * 0.05],
-            [73.85 + Math.random() * 0.05, 18.53 + Math.random() * 0.05],
-            [73.85 + Math.random() * 0.05, 18.52 + Math.random() * 0.05],
-          ],
-        ],
-      };
+      // Generate a deterministic approximate polygon from the district centroid.
+      // This is labeled as geoSource: 'approximate' so consumers can tell it's
+      // not a real surveyed boundary. If the district isn't in our centroid table,
+      // geo is set to null with geoSource: 'none'.
+      const district = structured.location?.district || doc.sourceOffice.district;
+      const surveyNum = structured.surveyNumber || '';
+      const { geo: approxGeo, geoSource } = approximateGeoFromDistrict(district, surveyNum);
 
       const landRecord = await LandRecord.create({
         documentId: doc._id,
@@ -145,7 +145,8 @@ class ExtractionWorker {
         plotArea: structured.plotArea,
         location: {
           ...structured.location,
-          geo: mockPolygon,
+          geo: approxGeo,
+          geoSource,
         },
         landClassification: structured.landClassification,
         ownershipDetails: structured.ownershipDetails,
