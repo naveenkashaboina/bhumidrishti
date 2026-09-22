@@ -164,6 +164,15 @@ class DocumentController {
       const skip = (page - 1) * limit;
 
       const filter = { ...(req.jurisdictionFilter || {}) };
+
+      // Allow DEO to always see any document they personally uploaded OR matches jurisdiction
+      if (req.user.role === 'DEO') {
+        const juris = { ...(req.jurisdictionFilter || {}) };
+        filter.$or = [{ uploadedBy: req.user._id }, juris];
+        delete filter['sourceOffice.district'];
+        delete filter['sourceOffice.tehsil'];
+      }
+
       if (req.query.status) filter.status = req.query.status;
       if (req.query.district) filter['sourceOffice.district'] = new RegExp(`^${req.query.district}$`, 'i');
 

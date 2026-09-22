@@ -29,6 +29,10 @@ apiClient.interceptors.request.use(
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
     }
+    // Let browser set multipart/form-data with proper boundary for FormData
+    if (config.data instanceof FormData) {
+      delete config.headers['Content-Type'];
+    }
     return config;
   },
   (error) => Promise.reject(error)
@@ -136,19 +140,13 @@ export const documentsApi = {
    * Upload single scanned document / PDF
    * @param {FormData} formData - includes 'file', 'district', 'tehsil', 'village', 'languageHint'
    */
-  uploadSingle: (formData) =>
-    apiClient.post('/documents/upload', formData, {
-      headers: { 'Content-Type': 'multipart/form-data' },
-    }),
+  uploadSingle: (formData) => apiClient.post('/documents/upload', formData),
 
   /**
    * Bulk upload multiple scanned records
    * @param {FormData} formData - includes 'files', 'district', etc.
    */
-  uploadBulk: (formData) =>
-    apiClient.post('/documents/bulk-upload', formData, {
-      headers: { 'Content-Type': 'multipart/form-data' },
-    }),
+  uploadBulk: (formData) => apiClient.post('/documents/bulk-upload', formData),
 
   /**
    * List uploaded documents

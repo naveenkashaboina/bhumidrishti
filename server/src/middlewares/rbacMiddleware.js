@@ -31,7 +31,7 @@ const requireRole = (allowedRoles = []) => {
  * State & Super Admins have unrestricted access.
  * District Officers, Verifiers, and DEOs are restricted to their assigned district / tehsil.
  */
-const requireJurisdiction = () => {
+const requireJurisdiction = (fieldPrefix = 'location') => {
   return (req, res, next) => {
     if (!req.user) {
       return ApiResponse.unauthorized(res, 'Authentication required');
@@ -54,11 +54,11 @@ const requireJurisdiction = () => {
 
     // Attach filter object to request for controller query scoping
     req.jurisdictionFilter = {
-      'location.district': new RegExp(`^${district}$`, 'i'),
+      [`${fieldPrefix}.district`]: new RegExp(`^${district}$`, 'i'),
     };
 
     if (tehsil && req.user.role === ROLES.DEO) {
-      req.jurisdictionFilter['location.tehsil'] = new RegExp(`^${tehsil}$`, 'i');
+      req.jurisdictionFilter[`${fieldPrefix}.tehsil`] = new RegExp(`^${tehsil}$`, 'i');
     }
 
     next();

@@ -8,7 +8,7 @@ router.use(authenticate);
 
 router.post('/upload', upload.single('file'), DocumentController.uploadSingle);
 router.post('/bulk-upload', upload.array('files', 20), DocumentController.uploadBulk);
-router.get('/', requireJurisdiction(), DocumentController.getDocuments);
+router.get('/', requireJurisdiction('sourceOffice'), DocumentController.getDocuments);
 router.get('/:id', DocumentController.getDocumentById);
 router.get('/:id/file', DocumentController.getDocumentFile);
 
